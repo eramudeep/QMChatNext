@@ -1,7 +1,7 @@
-import React from 'react';
-import {View, StyleSheet} from 'react-native';
-import {useActionSheet} from '@expo/react-native-action-sheet';
-import {s, vs} from 'react-native-size-matters';
+import React from 'react'
+import {View, StyleSheet} from 'react-native'
+import {useActionSheet} from '@expo/react-native-action-sheet'
+import {s, vs} from 'react-native-size-matters'
 
 // QM-Core Components & Theme
 import {
@@ -10,28 +10,28 @@ import {
   Badge,
   Pressable,
   Divider,
-} from 'Core/Components';
-import {useTheme} from 'QM-Core';
+} from 'Core/Components'
+import {useTheme} from 'QM-Core'
 
 // Helpers & Types
-import {timeSince} from 'Utils/common';
-import {InboxItemProps} from '../type';
+import {timeSince} from 'Utils/common'
+import {InboxItemProps} from '../type'
 
 export const InboxItem: React.FC<InboxItemProps> = ({item, onDelete, onSelect}) => {
-  const {colors} = useTheme();
-  const {showActionSheetWithOptions} = useActionSheet();
+  const {colors} = useTheme()
+  const {showActionSheetWithOptions} = useActionSheet()
 
-  const {receiver, lastMessage, pendingCount = 0} = item;
-  const {full_name, profile_file} = receiver;
+  const {receiver, lastMessage, pendingCount = 0} = item
+  const {full_name, profile_file} = receiver
 
   const handlePress = () => {
-    onSelect(item);
-  };
+    onSelect(item)
+  }
 
   const handleLongPress = () => {
-    const options = ['Delete Conversation', 'Block User', 'Cancel'];
-    const destructiveButtonIndex = 0;
-    const cancelButtonIndex = 2;
+    const options = ['Delete Conversation', 'Block User', 'Cancel']
+    const destructiveButtonIndex = 0
+    const cancelButtonIndex = 2
 
     showActionSheetWithOptions(
       {
@@ -41,21 +41,21 @@ export const InboxItem: React.FC<InboxItemProps> = ({item, onDelete, onSelect}) 
       },
       selectedIndex => {
         if (selectedIndex === 0) {
-          onDelete(item.id);
+          onDelete(item.id)
         }
       },
-    );
-  };
+    )
+  }
 
   const getMessagePreview = () => {
-    if (lastMessage.image) return '📷 Photo';
-    if (lastMessage.location) return '📍 Location shared';
-    if (lastMessage.audio) return '🎤 Voice Note (0:14)';
-    if (lastMessage.text) return lastMessage.text;
-    return 'Say hello!';
-  };
+    if (lastMessage.image) return '📷 Photo'
+    if (lastMessage.location) return '📍 Location shared'
+    if (lastMessage.audio) return '🎤 Voice Note (0:14)'
+    if (lastMessage.text) return lastMessage.text
+    return 'Say hello!'
+  }
 
-  const hasUnread = pendingCount > 0;
+  const hasUnread = pendingCount > 0
 
   return (
     <>
@@ -98,8 +98,8 @@ export const InboxItem: React.FC<InboxItemProps> = ({item, onDelete, onSelect}) 
       </Pressable>
       <Divider color="overlayLight" spacing={0.5} />
     </>
-  );
-};
+  )
+}
 
 const styles = StyleSheet.create({
   itemWrapper: {
@@ -132,6 +132,6 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: s(8),
   },
-});
+})
 
-export default InboxItem;
+export default InboxItem

@@ -1,5 +1,5 @@
-import {Inbox, OneToOne} from '../Screens';
-import {chatNextRoutes} from './routeConst';
+import {Inbox, OneToOne} from '../Screens'
+import {chatNextRoutes} from './routeConst'
 
 export const chatNextTabRoutes = [
   {
@@ -11,7 +11,7 @@ export const chatNextTabRoutes = [
       tabBarIcon: 'chat',
     },
   },
-];
+]
 
 export const chatNextRoutesNonTabs = [
   {
@@ -22,6 +22,6 @@ export const chatNextRoutesNonTabs = [
       tabBarButton: () => null,
     },
   },
-];
+]
 
-export default chatNextTabRoutes;
+export default chatNextTabRoutes

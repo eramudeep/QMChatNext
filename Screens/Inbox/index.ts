@@ -1,5 +1,5 @@
-import InboxScreen from './inbox.screen';
+import InboxScreen from './inbox.screen'
 
-export * from './inbox.screen';
-export * from './inbox.screen.styles';
-export default InboxScreen;
+export * from './inbox.screen'
+export * from './inbox.screen.styles'
+export default InboxScreen

@@ -1,6 +1,6 @@
-import React from 'react';
-import {SafeAreaView, StyleSheet, Text, View} from 'react-native';
-import withRedux from 'HOCs/withRedux';
+import React from 'react'
+import {SafeAreaView, StyleSheet, Text, View} from 'react-native'
+import withRedux from 'HOCs/withRedux'
 
 interface OneToOneProps {
   route?: {
@@ -15,8 +15,8 @@ interface OneToOneProps {
   };
 }
 
-function OneToOne({route, user}: OneToOneProps) {
-  const chatId = route?.params?.chatId;
+function OneToOne({route, user: _user}: OneToOneProps) {
+  const chatId = route?.params?.chatId
 
   return (
     <SafeAreaView style={styles.container}>
@@ -24,7 +24,7 @@ function OneToOne({route, user}: OneToOneProps) {
         <Text style={styles.text}>Next Generation Chat ({chatId ?? 'Direct'})</Text>
       </View>
     </SafeAreaView>
-  );
+  )
 }
 
 const styles = StyleSheet.create({
@@ -39,6 +39,6 @@ const styles = StyleSheet.create({
   text: {
     fontSize: 16,
   },
-});
+})
 
-export default withRedux(OneToOne);
+export default withRedux(OneToOne)
