@@ -1,0 +1,34 @@
+{
+  "name": "qm-chat-next",
+  "version": "1.0.0",
+  "description": "Next-generation real-time chat module for the Queeny app.",
+  "main": "index.ts",
+  "author": {
+    "name": "Ram Singh",
+    "email": "er.amudeep@gmail.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/eramudeep/QMChatNext.git"
+  },
+  "license": "SEE LICENSE IN LICENSE",
+  "private": true,
+  "keywords": [
+    "queeny",
+    "qm-chat-next",
+    "react-native",
+    "chat",
+    "realtime-chat",
+    "gay-dating"
+  ],
+  "peerDependencies": {
+    "react": "*",
+    "react-native": "*"
+  },
+  "scripts": {
+    "test": "cd ../.. && npm test -- --testPathPattern='QMChatNext' --no-coverage",
+    "test:watch": "cd ../.. && npm test -- --testPathPattern='QMChatNext' --watch --no-coverage",
+    "test:coverage": "cd ../.. && npm test -- --testPathPattern='QMChatNext' --coverage",
+    "lint": "eslint '**/*.{ts,tsx,js,jsx}'"
+  }
+}
