@@ -10,6 +10,10 @@ export const initialChatNextState: ChatNextState = {
   isLoading: false,
   getRoomsInProgress: false,
   getRoomsError: null,
+  getRoomMessagesInProgress: false,
+  getRoomMessagesError: null,
+  sendMessageInProgress: false,
+  sendMessageError: null,
 }
 
 export default initialChatNextState

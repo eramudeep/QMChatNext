@@ -6,7 +6,7 @@ import * as Utils from './Utils'
 import * as Services from './Services'
 import * as Stores from './Stores'
 
-export {Navigation, Screens, Components, Widgets, Utils, Services, Stores}
+export { Navigation, Screens, Components, Widgets, Utils, Services, Stores }
 export * from './Navigation'
 export * from './Screens'
 export * from './Components'
@@ -15,3 +15,4 @@ export * from './Utils'
 export * from './Services'
 export * from './Stores'
 export * from './type'
+export * from './enum'

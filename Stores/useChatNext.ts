@@ -7,9 +7,12 @@ import {
   ChatNextMessage,
   GetRoomsParams,
   ChatRoom,
+  SendMessagePayload,
+  GetRoomMessagesParams,
+  RoomMessageItem,
 } from '../type'
 import { initialChatNextState } from './initialState'
-import { getRooms } from '../Services/chatNextService'
+import { getRooms, sendMessage, getRoomMessages } from '../Services/chatNextService'
 
 const mapRoomToInboxItem = (room: ChatRoom): MockInboxItem => {
   const otherUser = room.receiver || room.sender || {}
@@ -33,6 +36,22 @@ const mapRoomToInboxItem = (room: ChatRoom): MockInboxItem => {
   }
 }
 
+const mapRoomMessageToGifted = (msg: RoomMessageItem): ChatNextMessage => ({
+  _id: msg.id,
+  text: msg.content || (msg.location ? (msg.location.name || '📍 Location') : ''),
+  createdAt: msg.createdAt,
+  user: {
+    _id: String(msg.senderId || msg.sender?.id || ''),
+    name: msg.sender?.displayName,
+    avatar: msg.sender?.avatarUrl || undefined,
+  },
+  location: msg.location,
+  isSingleView: msg.isSingleView,
+  mediaAttachment: msg.mediaAttachment,
+  image: msg.mediaAttachment?.url,
+  sent: true,
+})
+
 export const useChatNext = create<ChatNextStore>()(
   persist(
     (set, get) => ({
@@ -46,7 +65,6 @@ export const useChatNext = create<ChatNextStore>()(
         })
 
         const response: any = await getRooms(params)
-        console.log("response=====>", response);
         if (
           response &&
           response.isSuccess !== false &&
@@ -72,6 +90,160 @@ export const useChatNext = create<ChatNextStore>()(
           isLoading: false,
           getRoomsInProgress: false,
           getRoomsError: response?.message || 'Failed to fetch rooms',
+        })
+
+        return response
+      },
+
+      getRoomMessages$: async (params: GetRoomMessagesParams) => {
+        const { roomId, before } = params
+        set({
+          getRoomMessagesInProgress: true,
+          getRoomMessagesError: null,
+        })
+
+        const response: any = await getRoomMessages(params)
+
+        if (
+          response &&
+          response.isSuccess !== false &&
+          response.success !== false &&
+          Array.isArray(response.data)
+        ) {
+          const mappedMessages: ChatNextMessage[] = response.data.map(mapRoomMessageToGifted)
+
+          set(state => {
+            const current = state.messagesByChatId[roomId] || []
+            const merged = before ? [...current, ...mappedMessages] : mappedMessages
+            const seen = new Set<string>()
+            const deduplicatedAndSorted = merged
+              .filter(m => {
+                if (!m._id || seen.has(m._id)) return false
+                seen.add(m._id)
+                return true
+              })
+              .sort(
+                (a, b) =>
+                  new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+              )
+
+            return {
+              messagesByChatId: {
+                ...state.messagesByChatId,
+                [roomId]: deduplicatedAndSorted,
+              },
+              getRoomMessagesInProgress: false,
+              getRoomMessagesError: null,
+            }
+          })
+
+          return response
+        }
+
+        set({
+          getRoomMessagesInProgress: false,
+          getRoomMessagesError: response?.message || 'Failed to fetch room messages',
+        })
+
+        return response
+      },
+
+      sendMessage$: async (payload: SendMessagePayload, senderId?: string) => {
+        const tempId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+        const targetChatId = payload.roomId || payload.recipientId || ''
+
+        // 1. Immediately render optimistic message in chat
+        if (targetChatId) {
+          const optimisticMessage: ChatNextMessage = {
+            _id: tempId,
+            text: payload.content || (payload.location ? (payload.location.name || '📍 Location') : ''),
+            createdAt: new Date().toISOString(),
+            user: {
+              _id: String(senderId || 'me'),
+            },
+            location: payload.location,
+            isSingleView: payload.isSingleView,
+            mediaAttachment: payload.mediaAttachment,
+            image: payload.mediaAttachment?.url,
+            pending: true,
+            sent: false,
+          }
+          get().addMessage$(targetChatId, optimisticMessage)
+        }
+
+        set({
+          sendMessageInProgress: true,
+          sendMessageError: null,
+        })
+
+        const response: any = await sendMessage(payload)
+
+        if (response && response.isSuccess !== false && response.success !== false) {
+          const sentData = response.data
+          const resolvedChatId = payload.roomId || sentData?.roomId || targetChatId
+
+          if (resolvedChatId && sentData) {
+            const confirmedMessage: ChatNextMessage = {
+              _id: sentData.id,
+              text: sentData.content || (sentData.location ? (sentData.location.name || '📍 Location') : payload.content),
+              createdAt: sentData.createdAt,
+              user: {
+                _id: String(sentData.senderId || senderId || 'me'),
+              },
+              location: sentData.location || payload.location,
+              isSingleView: sentData.isSingleView !== undefined ? sentData.isSingleView : payload.isSingleView,
+              mediaAttachment: sentData.mediaAttachment || payload.mediaAttachment,
+              image: sentData.mediaAttachment?.url || payload.mediaAttachment?.url,
+              sent: true,
+              pending: false,
+            }
+
+            // Replace optimistic temporary message with confirmed server message
+            set(state => {
+              const currentMessages = state.messagesByChatId[resolvedChatId] || []
+              const replacedMessages = currentMessages.map(msg =>
+                msg._id === tempId ? confirmedMessage : msg,
+              )
+              const hasConfirmed = replacedMessages.some(msg => msg._id === confirmedMessage._id)
+              const finalMessages = hasConfirmed
+                ? replacedMessages
+                : [confirmedMessage, ...currentMessages.filter(m => m._id !== tempId)]
+
+              return {
+                messagesByChatId: {
+                  ...state.messagesByChatId,
+                  [resolvedChatId]: finalMessages,
+                },
+              }
+            })
+          }
+
+          set({
+            sendMessageInProgress: false,
+            sendMessageError: null,
+          })
+
+          return response
+        }
+
+        // On network/server failure, clear pending status
+        if (targetChatId) {
+          set(state => {
+            const currentMessages = state.messagesByChatId[targetChatId] || []
+            return {
+              messagesByChatId: {
+                ...state.messagesByChatId,
+                [targetChatId]: currentMessages.map(msg =>
+                  msg._id === tempId ? { ...msg, pending: false, sent: false } : msg,
+                ),
+              },
+            }
+          })
+        }
+
+        set({
+          sendMessageInProgress: false,
+          sendMessageError: response?.message || 'Failed to send message',
         })
 
         return response
