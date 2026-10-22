@@ -119,24 +119,72 @@ export const styles = StyleSheet.create({
   singleViewWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: vs(10),
-    paddingHorizontal: s(12),
-    borderRadius: 16,
+    paddingVertical: vs(5),
+    paddingHorizontal: s(6),
     gap: s(8),
   },
-  singleViewWrapperMy: {
-    backgroundColor: 'rgba(255, 255, 255, 0.18)',
+  singleViewIconCircle: {
+    width: ms(28),
+    height: ms(28),
+    borderRadius: ms(14),
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
   },
-  singleViewTextContainer: {
-    flex: 1,
+  singleViewIconCircleMy: {
+    borderColor: 'rgba(255, 255, 255, 0.85)',
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
   },
-  singleViewBadge: {
-    paddingHorizontal: s(8),
+  singleViewIconCircleOther: {
+    borderColor: 'rgba(0, 0, 0, 0.3)',
+    backgroundColor: 'rgba(0, 0, 0, 0.04)',
+  },
+  singleViewIconCircleExpired: {
+    borderStyle: 'solid',
+    borderColor: 'transparent',
+    backgroundColor: 'rgba(150, 150, 150, 0.18)',
+  },
+  singleViewText: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  bubbleOuterContainer: {
+    position: 'relative',
+    flexDirection: 'column',
+  },
+  bubbleOuterRight: {
+    alignItems: 'flex-end',
+  },
+  bubbleOuterLeft: {
+    alignItems: 'flex-start',
+  },
+  reactionBadgeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: s(6),
     paddingVertical: vs(2),
     borderRadius: 12,
+    borderWidth: 1,
+    marginTop: -vs(8),
+    marginBottom: vs(4),
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.18,
+    shadowRadius: 2,
+    elevation: 4,
+    zIndex: 99,
+    gap: s(3),
   },
-  singleViewBadgeMy: {
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+  reactionBadgeRight: {
+    marginRight: s(12),
+  },
+  reactionBadgeLeft: {
+    marginLeft: s(12),
+  },
+  reactionText: {
+    fontSize: 11,
+    fontWeight: '600',
   },
 })
 

@@ -1,7 +1,7 @@
 import React from 'react'
-import {View, StyleSheet} from 'react-native'
-import {useActionSheet} from '@expo/react-native-action-sheet'
-import {s, vs} from 'react-native-size-matters'
+import { View, StyleSheet } from 'react-native'
+import { useActionSheet } from '@expo/react-native-action-sheet'
+import { s, vs } from 'react-native-size-matters'
 
 // QM-Core Components & Theme
 import {
@@ -11,18 +11,19 @@ import {
   Pressable,
   Divider,
 } from 'Core/Components'
-import {useTheme} from 'QM-Core'
+import { useTheme } from 'QM-Core'
 
 // Helpers & Types
-import {timeSince} from 'Utils/common'
-import {InboxItemProps} from '../type'
+import { timeSince } from 'Utils/common'
+import { InboxItemProps } from '../type'
 
-export const InboxItem: React.FC<InboxItemProps> = ({item, onDelete, onSelect}) => {
-  const {colors} = useTheme()
-  const {showActionSheetWithOptions} = useActionSheet()
+export const InboxItem: React.FC<InboxItemProps> = ({ item, onDelete, onSelect }) => {
+  const { colors } = useTheme()
+  const { showActionSheetWithOptions } = useActionSheet()
 
-  const {receiver, lastMessage, pendingCount = 0} = item
-  const {full_name, profile_file} = receiver
+  const { receiver, lastMessage, unreadCount = 0 } = item
+
+  const { full_name, profile_file } = receiver
 
   const handlePress = () => {
     onSelect(item)
@@ -55,8 +56,6 @@ export const InboxItem: React.FC<InboxItemProps> = ({item, onDelete, onSelect}) 
     return 'Say hello!'
   }
 
-  const hasUnread = pendingCount > 0
-
   return (
     <>
       <Pressable
@@ -64,11 +63,11 @@ export const InboxItem: React.FC<InboxItemProps> = ({item, onDelete, onSelect}) 
         onLongPress={handleLongPress}
         style={[
           styles.itemWrapper,
-          hasUnread && {backgroundColor: colors.overlayLight},
+          unreadCount > 0 && { backgroundColor: colors.overlayLight },
         ]}
       >
         <Avatar
-          source={{uri: profile_file}}
+          source={{ uri: profile_file }}
           initials={full_name ? full_name.charAt(0).toUpperCase() : 'U'}
           size="lg"
         />
@@ -84,14 +83,14 @@ export const InboxItem: React.FC<InboxItemProps> = ({item, onDelete, onSelect}) 
           <View style={styles.itemFooter}>
             <Typography
               variant="labelSm"
-              color={hasUnread ? 'primary' : 'tertiary'}
+              color={unreadCount > 0 ? 'primary' : 'tertiary'}
               numberOfLines={1}
               style={styles.messagePreview}
             >
               {getMessagePreview()}
             </Typography>
-            {hasUnread && (
-              <Badge count={pendingCount} variant="primary" size="sm" />
+            {unreadCount > 0 && (
+              <Badge count={unreadCount} variant="primary" size="sm" />
             )}
           </View>
         </View>

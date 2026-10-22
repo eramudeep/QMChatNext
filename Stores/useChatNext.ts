@@ -6,51 +6,25 @@ import {
   MockInboxItem,
   ChatNextMessage,
   GetRoomsParams,
-  ChatRoom,
   SendMessagePayload,
   GetRoomMessagesParams,
-  RoomMessageItem,
+  GetChatImagesParams,
 } from '../type'
 import { initialChatNextState } from './initialState'
-import { getRooms, sendMessage, getRoomMessages } from '../Services/chatNextService'
-
-const mapRoomToInboxItem = (room: ChatRoom): MockInboxItem => {
-  const otherUser = room.receiver || room.sender || {}
-  return {
-    id: room.id,
-    chat_id: room.id,
-    pendingCount: room.unreadCount || 0,
-    receiver: {
-      id: String(otherUser.id || room.id),
-      full_name: otherUser.displayName || room.name || 'User',
-      profile_file: otherUser.avatarUrl || room.avatarUrl || '',
-      distance: otherUser.isOnline ? 'Online' : undefined,
-    },
-    lastMessage: {
-      text: room.lastMessage?.content || '',
-      image: room.lastMessage?.type === 'IMAGE' ? room.lastMessage.content : undefined,
-      location: room.lastMessage?.type === 'LOCATION',
-      audio: room.lastMessage?.type === 'AUDIO',
-      created_on: room.lastMessage?.createdAt || room.updatedAt || room.createdAt,
-    },
-  }
-}
-
-const mapRoomMessageToGifted = (msg: RoomMessageItem): ChatNextMessage => ({
-  _id: msg.id,
-  text: msg.content || (msg.location ? (msg.location.name || '📍 Location') : ''),
-  createdAt: msg.createdAt,
-  user: {
-    _id: String(msg.senderId || msg.sender?.id || ''),
-    name: msg.sender?.displayName,
-    avatar: msg.sender?.avatarUrl || undefined,
-  },
-  location: msg.location,
-  isSingleView: msg.isSingleView,
-  mediaAttachment: msg.mediaAttachment,
-  image: msg.mediaAttachment?.url,
-  sent: true,
-})
+import {
+  getRooms,
+  sendMessage,
+  getRoomMessages,
+  viewSingleViewMessage,
+  getChatImages,
+  deleteChatImage,
+  deleteMessage,
+  likeMessage,
+} from '../Services/chatNextService'
+import {
+  mapRoomToInboxItem,
+  mapRoomMessageToGifted,
+} from '../Utils/chatUtils'
 
 export const useChatNext = create<ChatNextStore>()(
   persist(
@@ -164,7 +138,7 @@ export const useChatNext = create<ChatNextStore>()(
             location: payload.location,
             isSingleView: payload.isSingleView,
             mediaAttachment: payload.mediaAttachment,
-            image: payload.mediaAttachment?.url,
+            image: payload.file?.uri || payload.mediaAttachment?.url,
             pending: true,
             sent: false,
           }
@@ -193,9 +167,13 @@ export const useChatNext = create<ChatNextStore>()(
               location: sentData.location || payload.location,
               isSingleView: sentData.isSingleView !== undefined ? sentData.isSingleView : payload.isSingleView,
               mediaAttachment: sentData.mediaAttachment || payload.mediaAttachment,
-              image: sentData.mediaAttachment?.url || payload.mediaAttachment?.url,
+              image: sentData.mediaAttachment?.url || payload.file?.uri || payload.mediaAttachment?.url,
               sent: true,
               pending: false,
+            }
+
+            if (sentData.mediaAttachment || payload.file || payload.mediaAttachment) {
+              get().getChatImages$?.()
             }
 
             // Replace optimistic temporary message with confirmed server message
@@ -297,7 +275,7 @@ export const useChatNext = create<ChatNextStore>()(
       markAsRead$: (inboxId: string) => {
         set(state => ({
           inboxList: state.inboxList.map(item =>
-            item.id === inboxId ? { ...item, pendingCount: 0 } : item,
+            item.id === inboxId ? { ...item, unreadCount: 0 } : item,
           ),
         }))
       },
@@ -314,6 +292,260 @@ export const useChatNext = create<ChatNextStore>()(
             messagesByChatId: nextMessages,
           }
         })
+      },
+
+      viewSingleViewMessage$: async (messageId: string, chatId?: string) => {
+        set({ viewSingleViewMessageInProgress: true })
+
+        // 1. Optimistically update local message state to expired
+        if (chatId) {
+          set(state => {
+            const currentMessages = state.messagesByChatId[chatId] || []
+            const updated = currentMessages.map(msg => {
+              if (msg._id === messageId) {
+                return {
+                  ...msg,
+                  isExpired: true,
+                  mediaAttachment: null,
+                  image: undefined,
+                  viewedAt: new Date().toISOString(),
+                }
+              }
+              return msg
+            })
+            return {
+              messagesByChatId: {
+                ...state.messagesByChatId,
+                [chatId]: updated,
+              },
+            }
+          })
+        }
+
+        const response: any = await viewSingleViewMessage(messageId)
+
+        if (response && response.isSuccess !== false && response.success !== false) {
+          const viewedData = response.data
+          const resolvedChatId = chatId || viewedData?.roomId
+
+          if (resolvedChatId) {
+            set(state => {
+              const currentMessages = state.messagesByChatId[resolvedChatId] || []
+              const updated = currentMessages.map(msg => {
+                if (msg._id === messageId) {
+                  return {
+                    ...msg,
+                    isExpired: true,
+                    mediaAttachment: null,
+                    image: undefined,
+                    viewedAt: viewedData?.viewedAt || msg.viewedAt,
+                  }
+                }
+                return msg
+              })
+              return {
+                messagesByChatId: {
+                  ...state.messagesByChatId,
+                  [resolvedChatId]: updated,
+                },
+                viewSingleViewMessageInProgress: false,
+              }
+            })
+          } else {
+            set({ viewSingleViewMessageInProgress: false })
+          }
+
+          return response
+        }
+
+        set({ viewSingleViewMessageInProgress: false })
+        return response
+      },
+
+      getChatImages$: async (params: GetChatImagesParams = {}) => {
+        set({
+          getChatImagesInProgress: true,
+          getChatImagesError: null,
+        })
+
+        const response: any = await getChatImages(params)
+        if (
+          response &&
+          response.isSuccess !== false &&
+          response.success !== false &&
+          Array.isArray(response.data)
+        ) {
+          const isPaging = params.page && params.page > 1
+
+          set(state => ({
+            chatImages: isPaging ? [...state.chatImages, ...response.data] : response.data,
+            chatImagesPagination: response.pagination,
+            getChatImagesInProgress: false,
+            getChatImagesError: null,
+          }))
+
+          return response
+        }
+
+        set({
+          getChatImagesInProgress: false,
+          getChatImagesError: response?.message || 'Failed to fetch chat images',
+        })
+
+        return response
+      },
+
+      deleteChatImage$: async (imageId: string | number) => {
+        const previousImages = get().chatImages
+        set(state => ({
+          chatImages: state.chatImages.filter(img => String(img.id) !== String(imageId)),
+          deleteChatImageInProgress: true,
+          deleteChatImageError: null,
+        }))
+
+        const response: any = await deleteChatImage(imageId)
+
+        if (response && response.isSuccess !== false && response.success !== false) {
+          set({
+            deleteChatImageInProgress: false,
+            deleteChatImageError: null,
+          })
+          return response
+        }
+
+        // Revert on failure
+        set({
+          chatImages: previousImages,
+          deleteChatImageInProgress: false,
+          deleteChatImageError: response?.message || 'Failed to delete chat image',
+        })
+
+        return response
+      },
+
+      deleteMessage$: async (messageId: string, chatId?: string) => {
+        const targetChatId = chatId || get().activeChatId || ''
+        const previousMessages = targetChatId ? get().messagesByChatId[targetChatId] || [] : []
+
+        if (targetChatId) {
+          set(state => ({
+            messagesByChatId: {
+              ...state.messagesByChatId,
+              [targetChatId]: (state.messagesByChatId[targetChatId] || []).filter(
+                msg => String(msg._id) !== String(messageId),
+              ),
+            },
+            deleteMessageInProgress: true,
+            deleteMessageError: null,
+          }))
+        }
+
+        const response: any = await deleteMessage(messageId)
+
+        if (response && response.isSuccess !== false && response.success !== false) {
+          set({
+            deleteMessageInProgress: false,
+            deleteMessageError: null,
+          })
+          return response
+        }
+
+        // Revert optimistic removal on failure
+        if (targetChatId) {
+          set(state => ({
+            messagesByChatId: {
+              ...state.messagesByChatId,
+              [targetChatId]: previousMessages,
+            },
+            deleteMessageInProgress: false,
+            deleteMessageError: response?.message || 'Failed to delete message',
+          }))
+        }
+
+        return response
+      },
+
+      likeMessage$: async (messageId: string, chatId?: string, isLiked?: boolean) => {
+        const targetChatId = chatId || get().activeChatId || ''
+        const previousMessages = targetChatId ? get().messagesByChatId[targetChatId] || [] : []
+
+        if (targetChatId) {
+          set(state => {
+            const currentMessages = state.messagesByChatId[targetChatId] || []
+            const updated = currentMessages.map(msg => {
+              if (String(msg._id) !== String(messageId)) return msg
+              const newIsLiked = isLiked !== undefined ? isLiked : !msg.isLiked
+              const currentCount = msg.likesCount || (msg.isLiked ? 1 : 0)
+              const newCount = Math.max(0, currentCount + (newIsLiked ? (msg.isLiked ? 0 : 1) : (msg.isLiked ? -1 : 0)))
+              return {
+                ...msg,
+                isLiked: newIsLiked,
+                likesCount: newCount,
+              }
+            })
+            return {
+              messagesByChatId: {
+                ...state.messagesByChatId,
+                [targetChatId]: updated,
+              },
+              likeMessageInProgress: true,
+              likeMessageError: null,
+            }
+          })
+        }
+
+        const response: any = await likeMessage(messageId, isLiked)
+
+        if (response && response.isSuccess !== false && response.success !== false) {
+          const respData = response.data
+          const backendIsLiked = respData?.isLiked ?? respData?.message?.isLiked
+          const backendLikesCount = respData?.likesCount ?? respData?.message?.likesCount
+          const backendLikes = respData?.likes ?? respData?.message?.likes
+
+          if (targetChatId && backendIsLiked !== undefined) {
+            set(state => {
+              const currentMessages = state.messagesByChatId[targetChatId] || []
+              const updated = currentMessages.map(msg => {
+                if (String(msg._id) !== String(messageId)) return msg
+                return {
+                  ...msg,
+                  isLiked: backendIsLiked,
+                  likesCount: backendLikesCount !== undefined ? backendLikesCount : msg.likesCount,
+                  likes: backendLikes !== undefined ? backendLikes : msg.likes,
+                }
+              })
+              return {
+                messagesByChatId: {
+                  ...state.messagesByChatId,
+                  [targetChatId]: updated,
+                },
+                likeMessageInProgress: false,
+                likeMessageError: null,
+              }
+            })
+          } else {
+            set({
+              likeMessageInProgress: false,
+              likeMessageError: null,
+            })
+          }
+
+          return response
+        }
+
+        // Revert optimistic update on failure
+        if (targetChatId) {
+          set(state => ({
+            messagesByChatId: {
+              ...state.messagesByChatId,
+              [targetChatId]: previousMessages,
+            },
+            likeMessageInProgress: false,
+            likeMessageError: response?.message || 'Failed to toggle like',
+          }))
+        }
+
+        return response
       },
 
       setActiveChatId$: (chatId?: string) => {

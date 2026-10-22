@@ -21,7 +21,7 @@ export interface MockInboxLastMessage {
 export interface MockInboxItem {
   id: string
   chat_id: string
-  pendingCount?: number
+  unreadCount?: number
   receiver: MockInboxReceiver
   lastMessage: MockInboxLastMessage
 }
@@ -78,13 +78,18 @@ export interface ChatNextMessage {
   image?: string
   audio?: string
   isSingleView?: boolean
-  mediaAttachment?: MediaAttachmentPayload
+  isExpired?: boolean
+  viewedAt?: string
+  mediaAttachment?: MediaAttachmentPayload | null
   location?: SendLocationPayload | {
     latitude: number
     longitude: number
     name?: string
     address?: string
   }
+  likes?: string[]
+  likesCount?: number
+  isLiked?: boolean
   pending?: boolean
   sent?: boolean
   received?: boolean
@@ -107,8 +112,13 @@ export interface ChatRoomLastMessage {
   isFromMe: boolean
   createdAt: string
   isSingleView?: boolean
-  mediaAttachment?: MediaAttachmentPayload
+  isExpired?: boolean
+  viewedAt?: string
+  mediaAttachment?: MediaAttachmentPayload | null
   location?: SendLocationPayload
+  likes?: string[]
+  likesCount?: number
+  isLiked?: boolean
 }
 
 export interface ChatRoom {
@@ -159,10 +169,15 @@ export interface RoomMessageItem {
   type: MessageType | string
   content?: string
   isSingleView?: boolean
-  mediaAttachment?: MediaAttachmentPayload
+  isExpired?: boolean
+  viewedAt?: string
+  mediaAttachment?: MediaAttachmentPayload | null
   location?: SendLocationPayload
   isFromMe: boolean
   createdAt: string
+  likes?: string[]
+  likesCount?: number
+  isLiked?: boolean
   sender?: {
     id: string
     displayName: string
@@ -181,7 +196,13 @@ export interface SendMessagePayload {
   roomId?: string
   type?: MessageType | keyof typeof MessageType | string
   content?: string
+  fileName?: string
   isSingleView?: boolean
+  file?: {
+    uri: string
+    type?: string
+    name?: string
+  }
   mediaAttachment?: MediaAttachmentPayload
   location?: SendLocationPayload
 }
@@ -196,11 +217,60 @@ export interface SendMessageResponse {
     type: MessageType | string
     content?: string
     isSingleView?: boolean
-    mediaAttachment?: MediaAttachmentPayload
+    isExpired?: boolean
+    viewedAt?: string
+    mediaAttachment?: MediaAttachmentPayload | null
     location?: SendLocationPayload
     createdAt: string
     updatedAt?: string
+    likes?: string[]
+    likesCount?: number
+    isLiked?: boolean
     [key: string]: any
+  }
+  isSuccess?: boolean
+  error?: any
+}
+
+export interface ViewSingleViewMessageResponse {
+  success: boolean
+  message: string
+  data?: any
+  isSuccess?: boolean
+  error?: any
+}
+
+export interface ChatImageItem {
+  id: string | number
+  fileName?: string
+  file_name?: string
+  url: string
+  typeId?: number
+  type_id?: number
+  stateId?: number
+  state_id?: number
+  createdOn?: string
+  created_on?: string
+  updatedOn?: string | null
+  updated_on?: string | null
+  createdById?: number | string
+  created_by_id?: number | string
+}
+
+export interface GetChatImagesParams {
+  page?: number
+  limit?: number
+}
+
+export interface ChatImagesResponse {
+  success: boolean
+  message: string
+  data: ChatImageItem[]
+  pagination?: {
+    page: number
+    limit: number
+    total: number
+    totalPages: number
   }
   isSuccess?: boolean
   error?: any
@@ -212,6 +282,13 @@ export interface ChatNextState {
   pagination?: ChatRoomsPagination
   messagesByChatId: Record<string, ChatNextMessage[]>
   activeChatId?: string
+  chatImages: ChatImageItem[]
+  chatImagesPagination?: {
+    page: number
+    limit: number
+    total: number
+    totalPages: number
+  }
   isLoading: boolean
   getRoomsInProgress: boolean
   getRoomsError: string | null
@@ -219,12 +296,26 @@ export interface ChatNextState {
   getRoomMessagesError: string | null
   sendMessageInProgress: boolean
   sendMessageError: string | null
+  viewSingleViewMessageInProgress: boolean
+  getChatImagesInProgress: boolean
+  getChatImagesError: string | null
+  deleteChatImageInProgress: boolean
+  deleteChatImageError: string | null
+  deleteMessageInProgress: boolean
+  deleteMessageError: string | null
+  likeMessageInProgress: boolean
+  likeMessageError: string | null
 }
 
 export interface ChatNextActions {
   getRooms$: (params?: GetRoomsParams) => Promise<any>
   getRoomMessages$: (params: GetRoomMessagesParams) => Promise<any>
   sendMessage$: (payload: SendMessagePayload, senderId?: string) => Promise<any>
+  viewSingleViewMessage$: (messageId: string, chatId?: string) => Promise<any>
+  getChatImages$: (params?: GetChatImagesParams) => Promise<any>
+  deleteChatImage$: (imageId: string | number) => Promise<any>
+  deleteMessage$: (messageId: string, chatId?: string) => Promise<any>
+  likeMessage$: (messageId: string, chatId?: string, isLiked?: boolean) => Promise<any>
   setInboxList$: (list: MockInboxItem[]) => void
   addMessage$: (chatId: string, message: ChatNextMessage) => void
   setMessages$: (chatId: string, messages: ChatNextMessage[]) => void

@@ -14,6 +14,17 @@ export const initialChatNextState: ChatNextState = {
   getRoomMessagesError: null,
   sendMessageInProgress: false,
   sendMessageError: null,
+  viewSingleViewMessageInProgress: false,
+  chatImages: [],
+  chatImagesPagination: undefined,
+  getChatImagesInProgress: false,
+  getChatImagesError: null,
+  deleteChatImageInProgress: false,
+  deleteChatImageError: null,
+  deleteMessageInProgress: false,
+  deleteMessageError: null,
+  likeMessageInProgress: false,
+  likeMessageError: null,
 }
 
 export default initialChatNextState

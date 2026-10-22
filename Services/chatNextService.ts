@@ -8,7 +8,8 @@ import {
   GetRoomMessagesParams,
   RoomMessagesResponse,
   MessageType,
-} from '../type'
+  GetChatImagesParams,
+} from 'ChatNext/type.d.ts'
 
 export interface ApiFailureResponse {
   isSuccess: false
@@ -120,7 +121,63 @@ export async function sendMessage(
       isSingleView,
       mediaAttachment,
       location,
+      file,
     } = payload
+
+    const isLocalMedia =
+      !!file ||
+      (!!mediaAttachment?.url &&
+        !mediaAttachment.url.startsWith('http://') &&
+        !mediaAttachment.url.startsWith('https://'))
+
+    if (isLocalMedia) {
+      const formData = new FormData()
+
+      if (roomId) {
+        formData.append('roomId', roomId)
+      } else if (recipientId) {
+        formData.append('recipientId', recipientId)
+      }
+
+      formData.append('type', String(type || MessageType.IMAGE))
+
+      if (content !== undefined) {
+        formData.append('content', content)
+      }
+
+      if (isSingleView !== undefined) {
+        formData.append('isSingleView', String(isSingleView))
+      }
+
+      if (mediaAttachment?.width) {
+        formData.append('width', String(mediaAttachment.width))
+      }
+      if (mediaAttachment?.height) {
+        formData.append('height', String(mediaAttachment.height))
+      }
+
+      const fileUri = file?.uri || mediaAttachment?.url || ''
+      const fileMime = file?.type || mediaAttachment?.mimeType || 'image/jpeg'
+      const ext = fileMime.includes('png') ? 'png' : fileMime.includes('webp') ? 'webp' : 'jpg'
+      const fileName = file?.name || mediaAttachment?.fileName || `photo_${Date.now()}.${ext}`
+
+      formData.append('file', {
+        uri: fileUri,
+        type: fileMime,
+        name: fileName,
+      } as any)
+
+      const options = {
+        method: 'POST',
+        body: formData,
+      }
+
+      return await RequestMaker(CHAT_NEXT_APIS.MESSAGES, options, {
+        withAuth: true,
+        canJson: true,
+        isFormData: true,
+      })
+    }
 
     const body: Record<string, any> = {
       type,
@@ -134,8 +191,18 @@ export async function sendMessage(
       body.isSingleView = isSingleView
     }
 
-    if (mediaAttachment) {
-      body.mediaAttachment = mediaAttachment
+    if (payload.fileName !== undefined) {
+      body.fileName = payload.fileName
+    } else if (mediaAttachment) {
+      body.mediaAttachment = {
+        fileType: mediaAttachment.fileType || 'IMAGE',
+        mimeType: mediaAttachment.mimeType || 'image/jpeg',
+        fileName: mediaAttachment.fileName || 'photo.jpg',
+        fileSize: Number(mediaAttachment.fileSize) || 1048576,
+        width: Number(mediaAttachment.width) || 1920,
+        height: Number(mediaAttachment.height) || 1080,
+        ...mediaAttachment,
+      }
     }
 
     if (location) {
@@ -168,8 +235,179 @@ export async function sendMessage(
   }
 }
 
+/**
+ * Mark a single-view message as viewed and expired
+ * Endpoint: POST /api/v1/chats/messages/:messageId/view
+ *
+ * @param messageId ID of the single-view message
+ * @returns Response from RequestMaker
+ */
+export async function viewSingleViewMessage(
+  messageId: string,
+): Promise<any> {
+  try {
+    const url = CHAT_NEXT_APIS.VIEW_SINGLE_VIEW_MESSAGE(messageId)
+    const options = {
+      method: 'POST',
+    }
+
+    return await RequestMaker(url, options, {
+      withAuth: true,
+      canJson: true,
+      isFormData: false,
+    })
+  } catch (error: any) {
+    console.log(`Error in ${viewSingleViewMessage.name}:`, error)
+    return {
+      isSuccess: false,
+      message: error?.message || 'Error while viewing single-view message',
+      error,
+    }
+  }
+}
+
+/**
+ * Lists all active images uploaded by the authenticated user
+ * Endpoint: GET /api/v1/chats/images
+ *
+ * @param params Query params (page, limit)
+ * @returns Response from RequestMaker
+ */
+export async function getChatImages(
+  params: GetChatImagesParams = {},
+): Promise<any> {
+  try {
+    const { page = 1, limit = 50 } = params
+    const queryParams: Record<string, string> = {
+      page: String(page),
+      limit: String(limit),
+    }
+
+    const queryString = new URLSearchParams(queryParams).toString()
+    const url = `${CHAT_NEXT_APIS.IMAGES}?${queryString}`
+
+    const options = {
+      method: 'GET',
+    }
+
+    return await RequestMaker(url, options, {
+      withAuth: true,
+      canJson: true,
+      isFormData: false,
+    })
+  } catch (error: any) {
+    console.log(`Error in ${getChatImages.name}:`, error)
+    return {
+      isSuccess: false,
+      message: error?.message || 'Error while fetching chat images',
+      error,
+    }
+  }
+}
+
+/**
+ * Soft-deletes a chat image (state_id = 0) owned by the user
+ * Endpoint: DELETE /api/v1/chats/images/:id
+ *
+ * @param imageId ID of the image to delete
+ * @returns Response from RequestMaker
+ */
+export async function deleteChatImage(
+  imageId: string | number,
+): Promise<any> {
+  try {
+    const url = CHAT_NEXT_APIS.DELETE_IMAGE(imageId)
+    const options = {
+      method: 'DELETE',
+    }
+
+    return await RequestMaker(url, options, {
+      withAuth: true,
+      canJson: true,
+      isFormData: false,
+    })
+  } catch (error: any) {
+    console.log(`Error in ${deleteChatImage.name}:`, error)
+    return {
+      isSuccess: false,
+      message: error?.message || 'Error while deleting chat image',
+      error,
+    }
+  }
+}
+
+/**
+ * Soft-deletes a message previously sent by the user
+ * Endpoint: DELETE /api/v1/chats/messages/:messageId
+ *
+ * @param messageId ID of the message to delete
+ * @returns Response from RequestMaker
+ */
+export async function deleteMessage(
+  messageId: string,
+): Promise<any> {
+  try {
+    const url = CHAT_NEXT_APIS.DELETE_MESSAGE(messageId)
+    const options = {
+      method: 'DELETE',
+    }
+
+    return await RequestMaker(url, options, {
+      withAuth: true,
+      canJson: true,
+      isFormData: false,
+    })
+  } catch (error: any) {
+    console.log(`Error in ${deleteMessage.name}:`, error)
+    return {
+      isSuccess: false,
+      message: error?.message || 'Error while deleting message',
+      error,
+    }
+  }
+}
+
+/**
+ * Likes or unlikes (toggles) a message for the authenticated user
+ * Endpoint: POST /api/v1/chats/messages/:messageId/like
+ *
+ * @param messageId ID of the message to like/unlike
+ * @param isLiked Optional explicit boolean state
+ * @returns Response from RequestMaker
+ */
+export async function likeMessage(
+  messageId: string,
+  isLiked?: boolean,
+): Promise<any> {
+  try {
+    const url = CHAT_NEXT_APIS.LIKE_MESSAGE(messageId)
+    const options = {
+      method: 'POST',
+      ...(isLiked !== undefined ? { body: JSON.stringify({ isLiked }) } : {}),
+    }
+
+    return await RequestMaker(url, options, {
+      withAuth: true,
+      canJson: true,
+      isFormData: false,
+    })
+  } catch (error: any) {
+    console.log(`Error in ${likeMessage.name}:`, error)
+    return {
+      isSuccess: false,
+      message: error?.message || 'Error while toggling like on message',
+      error,
+    }
+  }
+}
+
 export default {
   getRooms,
   getRoomMessages,
   sendMessage,
+  viewSingleViewMessage,
+  getChatImages,
+  deleteChatImage,
+  deleteMessage,
+  likeMessage,
 }

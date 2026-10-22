@@ -1,2 +1,1 @@
-// Utils module export for QMChatNext
-export {}
+export * from './chatUtils'
